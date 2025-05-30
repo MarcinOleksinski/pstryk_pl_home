@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import re
-
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.core import callback
@@ -18,7 +17,7 @@ _VALID_PREFIX = re.compile(r"^[a-z0-9_]+$")  # bez spacji / wielkich liter
 
 
 class PstrykConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Obsługuje dodawanie integracji w UI."""
+    """Dodawanie integracji w UI."""
 
     VERSION = 1
 
@@ -39,7 +38,6 @@ class PstrykConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if not prefix:
                 prefix = DEFAULT_ENTITY_PREFIX
             user_input[CONF_ENTITY_PREFIX] = prefix
-
             return self.async_create_entry(
                 title=f"Pstryk.pl ({prefix})", data=user_input
             )
@@ -50,9 +48,7 @@ class PstrykConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         defaults = defaults or {}
         return vol.Schema(
             {
-                vol.Required(
-                    CONF_API_TOKEN, default=defaults.get(CONF_API_TOKEN, "")
-                ): str,
+                vol.Required(CONF_API_TOKEN, default=defaults.get(CONF_API_TOKEN, "")): str,
                 vol.Optional(
                     CONF_ENTITY_PREFIX,
                     default=defaults.get(CONF_ENTITY_PREFIX, DEFAULT_ENTITY_PREFIX),
@@ -60,6 +56,7 @@ class PstrykConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             }
         )
 
+    # ⬇⬇⬇ **POPRAWIONA SYGNATURA** ⬇⬇⬇
     @callback
     def async_get_options_flow(self, config_entry):
         """Zwróć instancję OptionsFlow."""
