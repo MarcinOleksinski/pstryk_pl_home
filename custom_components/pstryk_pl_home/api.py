@@ -1,13 +1,15 @@
-"""Asynchroniczny klient API Pstryk.pl."""
+"""Asynchroniczny klient endpointu /pricing Pstryk.pl."""
 from __future__ import annotations
 
-from typing import Any
-import aiohttp
 import logging
+from typing import Any
+
+import aiohttp
 
 _LOGGER = logging.getLogger(__name__)
 
-API_URL = "https://api.pstryk.pl/v1/pricing"   # <-- 404 znika po poprawnym URL-u
+# ⇩ jeśli Twoje konto korzysta z innej wersji API, zmień tylko fragment v1
+API_URL = "https://api.pstryk.pl/pricing"
 
 
 class PstrykApiError(Exception):
@@ -15,7 +17,7 @@ class PstrykApiError(Exception):
 
 
 class PstrykClient:
-    """Klient endpointu /pricing."""
+    """Klient REST Pstryk.pl (endpoint /pricing)."""
 
     def __init__(self, session: aiohttp.ClientSession, api_token: str) -> None:
         self._session = session
@@ -28,6 +30,7 @@ class PstrykClient:
         window_end: str,
         resolution: str = "hour",
     ) -> dict[str, Any]:
+        """Zwraca słownik JSON z cenami."""
         params = {
             "window_start": window_start,
             "window_end": window_end,
@@ -38,10 +41,11 @@ class PstrykClient:
             "Accept": "application/json",
         }
 
-        _LOGGER.debug("GET %s %s", API_URL, params)
+        _LOGGER.debug("GET %s  params=%s", API_URL, params)
 
         async with self._session.get(API_URL, params=params, headers=headers) as resp:
             text = await resp.text()
+
             if resp.status == 404:
                 raise PstrykApiError("endpoint_not_found")
             if resp.status == 401:
