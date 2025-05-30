@@ -1,5 +1,6 @@
 """Inicjalizacja integracji Pstryk.pl Home."""
 from __future__ import annotations
+
 import logging
 import aiohttp
 
@@ -10,19 +11,17 @@ from homeassistant.helpers import aiohttp_client
 from .const import DOMAIN, CONF_API_TOKEN
 from .api import PstrykClient
 from .coordinator import PstrykCoordinator
-from .sensor import PstrykPriceTodaySensor
 
 _LOGGER = logging.getLogger(__name__)
 
 
-async def async_setup(_: HomeAssistant, __: dict) -> bool:
-    """Konfiguracja przez YAML (nieobsługiwana)."""
+async def async_setup(_: HomeAssistant, __: dict) -> bool:  # YAML-setup nieobsługiwany
     return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Setup po dodaniu w WebUI."""
-    session = aiohttp_client.async_get_clientsession(hass)
+    """Uruchom integrację po dodaniu w UI."""
+    session: aiohttp.ClientSession = aiohttp_client.async_get_clientsession(hass)
     client = PstrykClient(session, entry.data[CONF_API_TOKEN])
 
     coordinator = PstrykCoordinator(hass, client)
@@ -30,17 +29,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
 
-    # rejestruj encje
-    hass.helpers.discovery.async_load_platform(
-        "sensor", DOMAIN, {"entry": entry}, entry.data
-    )
-
+    # forwarduj do platform
+    await hass.config_entries.async_forward_entry_setups(entry, ["sensor"])
     return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Unload entry."""
-    coordinator: PstrykCoordinator | None = hass.data[DOMAIN].pop(entry.entry_id, None)
-    if coordinator:
-        await coordinator.async_shutdown()
-    return True
+    """Wyładuj integrację i usuń dane."""
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, ["sensor"])
+    if unload_ok:
+        hass.data[DOMAIN].pop(entry.entry_id, None)
+    return unload_ok
