@@ -1,4 +1,4 @@
-"""Asynchroniczny klient endpointu /pricing Pstryk.pl."""
+"""Asynchroniczny klient endpointu /integrations/pricing/ Pstryk.pl."""
 from __future__ import annotations
 
 import logging
@@ -8,8 +8,8 @@ import aiohttp
 
 _LOGGER = logging.getLogger(__name__)
 
-# ⇩ jeśli Twoje konto korzysta z innej wersji API, zmień tylko fragment v1
-API_URL = "https://api.pstryk.pl/pricing"
+# bazowy URL (BEZ parametrów)
+API_URL = "https://api.pstryk.pl/integrations/pricing/"
 
 
 class PstrykApiError(Exception):
@@ -17,7 +17,7 @@ class PstrykApiError(Exception):
 
 
 class PstrykClient:
-    """Klient REST Pstryk.pl (endpoint /pricing)."""
+    """Klient REST Pstryk.pl – endpoint /integrations/pricing/."""
 
     def __init__(self, session: aiohttp.ClientSession, api_token: str) -> None:
         self._session = session
@@ -30,7 +30,7 @@ class PstrykClient:
         window_end: str,
         resolution: str = "hour",
     ) -> dict[str, Any]:
-        """Zwraca słownik JSON z cenami."""
+        """Zwraca słownik JSON z cenami w zadanym oknie czasowym."""
         params = {
             "window_start": window_start,
             "window_end": window_end,
