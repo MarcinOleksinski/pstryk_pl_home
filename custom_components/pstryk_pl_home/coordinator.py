@@ -1,37 +1,38 @@
-"""DataUpdateCoordinator do pobierania cen godzinowych."""
+"""DataUpdateCoordinator pobierający dzisiejsze ceny godzinowe z Pstryk.pl."""
 from __future__ import annotations
 
 import datetime as dt
+import logging
 from typing import Any
 
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
-from homeassistant.core import HomeAssistant
 
 from .api import PstrykClient, PstrykApiError
 from .const import DOMAIN, SCAN_INTERVAL_MINUTES
 
+_LOGGER = logging.getLogger(__name__)
+
 
 class PstrykCoordinator(DataUpdateCoordinator[dict[str, Any]]):
-    """Koordynator pobierający dzisiejsze ceny godzinowe."""
+    """Koordynator odświeżający co 30-min cennik na bieżący dzień."""
 
     def __init__(self, hass: HomeAssistant, client: PstrykClient) -> None:
         super().__init__(
             hass,
-            _LOGGER,  # _LOGGER pochodzi z core; nie wymaga importu w tym miejscu
+            _LOGGER,
             name=DOMAIN,
             update_interval=dt.timedelta(minutes=SCAN_INTERVAL_MINUTES),
         )
         self._client = client
+        self._tz = dt_util.get_time_zone(hass.config.time_zone)
 
     async def _async_update_data(self) -> dict[str, Any]:
-        """Pobiera i formatuje dane."""
-        # okno: 00:00–23:59:59 lokalnie → UTC
+        """Pobierz dane i przemapuj je na { 'HH:00': price_gross }."""
         today_local = dt_util.now().date()
         start_utc = dt.datetime.combine(today_local, dt.time.min, tzinfo=dt.timezone.utc)
-        end_utc = dt.datetime.combine(
-            today_local, dt.time.max.replace(microsecond=0), tzinfo=dt.timezone.utc
-        )
+        end_utc = dt.datetime.combine(today_local, dt.time.max, tzinfo=dt.timezone.utc)
 
         try:
             raw = await self._client.async_get_pricing(
@@ -42,14 +43,12 @@ class PstrykCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         except PstrykApiError as err:
             raise UpdateFailed(err) from err
 
-        # Konwersja ramek na słownik {'HH:00': cena_gross}
-        frames_hours = {}
-        tz = dt_util.get_time_zone(self.hass.config.time_zone)
+        frames_hours: dict[str, float] = {}
         for frame in raw["frames"]:
-            hour_local = (
-                dt_util.as_local(dt_util.parse_datetime(frame["start"]), tz)
-                .strftime("%H:00")
-            )
+            start_dt = dt_util.parse_datetime(frame["start"])
+            if start_dt is None:
+                continue
+            hour_local = dt_util.as_local(start_dt, self._tz).strftime("%H:00")
             frames_hours[hour_local] = frame["price_gross"]
 
         return {
