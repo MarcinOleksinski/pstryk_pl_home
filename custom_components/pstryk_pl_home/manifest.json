@@ -1,0 +1,13 @@
+{
+  "domain": "pstryk_pl_home",
+  "name": "Pstryk.pl ICTPartnerPL",
+  "version": "0.0.1",
+  "documentation": "https://github.com/ICTPartnerPL/pstryk_pl_home",
+  "issue_tracker": "https://github.com/ICTPartnerPL/pstryk_pl_home/issues",
+  "codeowners": ["@ICTPartnerPL", "@MarcinOleksinski"],
+  "config_flow": true,
+  "iot_class": "cloud_polling",
+  "requirements": [],
+  "dependencies": [],
+  "quality_scale": "silver"
+}
