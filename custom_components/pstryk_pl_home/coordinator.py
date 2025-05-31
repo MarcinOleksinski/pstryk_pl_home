@@ -1,4 +1,4 @@
-"""DataUpdateCoordinator – pobiera dzisiejsze ceny godzinowe z Pstryk.pl."""
+"""DataUpdateCoordinator – pobiera dzienny cennik godzinowy z Pstryk.pl."""
 from __future__ import annotations
 
 import datetime as dt
@@ -26,16 +26,29 @@ class PstrykCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             update_interval=dt.timedelta(minutes=SCAN_INTERVAL_MINUTES),
         )
         self._client = client
+        self._tz = dt_util.get_time_zone(hass.config.time_zone)
 
-    # --------------------------------------------------------------------- #
+    # ------------------------------------------------------------------ #
     async def _async_update_data(self) -> dict[str, Any]:
-        """Pobierz dane pricing na bieżący dzień i przemapuj je na dict[HH:00]."""
-        today_local = dt_util.now().date()
-        start_utc = dt.datetime.combine(today_local, dt.time.min, tzinfo=dt.timezone.utc)
-        end_utc = dt.datetime.combine(today_local, dt.time.max, tzinfo=dt.timezone.utc)
+        """Pobierz ceny na lokalny dzień (00-24) – okno w UTC."""
+        today_local = dt_util.now(self._tz).date()
+
+        # 00:00 lokalnie → UTC
+        local_midnight = dt.datetime.combine(today_local, dt.time.min, tzinfo=self._tz)
+        start_utc = local_midnight.astimezone(dt.timezone.utc)
+
+        # 23:59:59 lokalnie → UTC
+        local_end = dt.datetime.combine(
+            today_local, dt.time(hour=23, minute=59, second=59), tzinfo=self._tz
+        )
+        end_utc = local_end.astimezone(dt.timezone.utc)
 
         _LOGGER.debug(
-            "⏰ Window %s → %s (UTC)  resolution=hour", start_utc, end_utc
+            "⏰ Window local [%s → %s]  UTC [%s → %s]",
+            local_midnight,
+            local_end,
+            start_utc,
+            end_utc,
         )
 
         try:
@@ -47,18 +60,17 @@ class PstrykCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         except PstrykApiError as err:
             raise UpdateFailed(err) from err
 
+        # mapuj ramki → {"HH:00": cena_gross}
         frames_hours: dict[str, float] = {}
         for frame in raw["frames"]:
             start_dt = dt_util.parse_datetime(frame["start"])
             if not start_dt:
                 continue
-
-            # dt_util.as_local() od 2025.5 przyjmuje tylko jeden argument
             hour_local = dt_util.as_local(start_dt).strftime("%H:00")
             frames_hours[hour_local] = frame["price_gross"]
 
         _LOGGER.debug(
-            "📶 Frames received: %d  (avg=%.4f PLN/kWh)",
+            "📶 Frames: %d  avg=%.4f",
             len(frames_hours),
             raw["price_gross_avg"],
         )
