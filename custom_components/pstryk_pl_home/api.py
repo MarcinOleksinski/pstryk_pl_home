@@ -8,7 +8,7 @@ import aiohttp
 
 _LOGGER = logging.getLogger(__name__)
 
-# bazowy URL (BEZ parametrów)
+# Stały adres końcówki API (bez parametrów zapytania)
 API_URL = "https://api.pstryk.pl/integrations/pricing/"
 
 
@@ -21,7 +21,7 @@ class PstrykClient:
 
     def __init__(self, session: aiohttp.ClientSession, api_token: str) -> None:
         self._session = session
-        self._token = api_token
+        self._token = api_token  # pełny klucz API przekazany przez użytkownika
 
     async def async_get_pricing(
         self,
@@ -37,7 +37,7 @@ class PstrykClient:
             "resolution": resolution,
         }
         headers = {
-            "Authorization": f"Bearer {self._token}",
+            "Authorization": self._token,
             "Accept": "application/json",
         }
 
@@ -52,8 +52,6 @@ class PstrykClient:
                 raise PstrykApiError("invalid_auth")
             if resp.status != 200:
                 _LOGGER.error("Pstryk API %s: %s", resp.status, text)
-                raise PstrykApiError(f"HTTP {resp.status}")
+                raise PstrykApiError(f"HTTP {resp.status}: {text}")
 
             return await resp.json()
-#         _LOGGER.debug("Pstryk API response: %s", text)
-#         return await resp.json()              
