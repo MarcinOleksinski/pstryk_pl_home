@@ -55,3 +55,5 @@ class PstrykClient:
                 raise PstrykApiError(f"HTTP {resp.status}")
 
             return await resp.json()
+#         _LOGGER.debug("Pstryk API response: %s", text)
+#         return await resp.json()              
