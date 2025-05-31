@@ -1,0 +1,4 @@
+logger:
+  default: info
+  logs:
+    custom_components.pstryk_pl_home: debug

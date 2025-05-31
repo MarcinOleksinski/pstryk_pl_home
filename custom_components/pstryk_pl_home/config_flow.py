@@ -1,4 +1,4 @@
-"""Config- oraz Options-flow integracji Pstryk.pl Home."""
+"""Config- i Options-flow integracji Pstryk.pl Home."""
 from __future__ import annotations
 
 import re
@@ -15,7 +15,7 @@ from .const import (
     DEFAULT_ENTITY_PREFIX,
 )
 
-_VALID_PREFIX = re.compile(r"^[a-z0-9_]+$")  # bez spacji, wielkich liter
+_VALID_PREFIX = re.compile(r"^[a-z0-9_]+$")  # tylko małe litery, cyfry, „_”
 
 
 class PstrykConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -23,16 +23,19 @@ class PstrykConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
+    # ---------- KROK 1 ---------- #
     async def async_step_user(self, user_input: dict[str, Any] | None = None):
-        """Pierwszy (i jedyny) krok: token + opcjonalny prefiks."""
+        """Formularz: token + (opcjonalny) prefiks encji."""
         if user_input is not None:
             prefix = user_input.get(CONF_ENTITY_PREFIX, "").strip().lower()
             errors: dict[str, str] = {}
 
             if prefix and not _VALID_PREFIX.fullmatch(prefix):
                 errors[CONF_ENTITY_PREFIX] = "invalid_prefix"
+
             if not prefix:
                 prefix = DEFAULT_ENTITY_PREFIX
+            user_input[CONF_ENTITY_PREFIX] = prefix
 
             if errors:
                 return self.async_show_form(
@@ -41,14 +44,13 @@ class PstrykConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     errors=errors,
                 )
 
-            user_input[CONF_ENTITY_PREFIX] = prefix
             return self.async_create_entry(
                 title=f"Pstryk.pl ({prefix})", data=user_input
             )
 
         return self.async_show_form(step_id="user", data_schema=self._schema())
 
-    # ---------- helpers ---------- #
+    # ---------- SCHEMA BUILDER ---------- #
     @staticmethod
     def _schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
         defaults = defaults or {}
@@ -64,9 +66,10 @@ class PstrykConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             }
         )
 
-    # ---------- options flow ---------- #
+    # ---------- OPTIONS FLOW ---------- #
+    @staticmethod  # statyczna – HA przekazuje tylko config_entry
     @callback
-    def async_get_options_flow(self, config_entry):  # ← poprawiona sygnatura
+    def async_get_options_flow(config_entry):
         return PstrykOptionsFlow(config_entry)
 
 
@@ -91,11 +94,15 @@ class PstrykOptionsFlow(config_entries.OptionsFlow):
                     errors=errors,
                 )
 
-            await self._entry.async_set_options(user_input)
+            # ⬇⬇⬇ ZAMIANA async_set_options → async_update_entry ⬇⬇⬇
+            self.hass.config_entries.async_update_entry(
+                self._entry, options=user_input
+            )
             return self.async_create_entry(data=user_input)
 
         return self.async_show_form(step_id="init", data_schema=self._schema())
 
+    # ---------- schema helper ---------- #
     def _schema(self, defaults: dict[str, Any] | None = None) -> vol.Schema:
         defaults = defaults or self._entry.options
         return vol.Schema(
